@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: device-monitor-mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGODB_DB_NAME}
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - device-monitor-network
+
+  redis:
+    image: redis:alpine
+    container_name: device-monitor-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - device-monitor-network
+
+  backend:
+    build: .
+    container_name: device-monitor-backend
+    restart: always
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://${MONGODB_USER}:${MONGODB_PASSWORD}@mongodb:27017/${MONGODB_DB_NAME}?authSource=admin
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - device-monitor-network
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+
+networks:
+  device-monitor-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+  redis_data:
